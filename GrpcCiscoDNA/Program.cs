@@ -13,13 +13,14 @@ namespace GrpcCiscoDNA
     {
         static async Task Main(string[] args)
         {
-
             Console.WriteLine("Enter API Key:");
             var apiKey = Console.ReadLine();
 
             Console.WriteLine("Creating channel...");
 
-            Channel channel = new Channel("partners.dnaspaces.io:443", ChannelCredentials.Insecure);
+            ChannelCredentials channelCredentials = new SslCredentials(System.IO.File.ReadAllText("CA.pem"));
+
+            Channel channel = new Channel("partners.dnaspaces.io:443", channelCredentials);
             var client = new FirehoseClient(channel);
             
             var eventsStreamRequest = new EventsStreamRequest();
@@ -28,17 +29,14 @@ namespace GrpcCiscoDNA
             metadata.Add(new Metadata.Entry("X-API-KEY", apiKey));
             var callOptions = new CallOptions(metadata);
 
-            AsyncServerStreamingCall<EventRecord> records = client.GetEvents(eventsStreamRequest, callOptions);
-
             Console.WriteLine("Requesting records...");
-
+            AsyncServerStreamingCall<EventRecord> records = client.GetEvents(eventsStreamRequest, callOptions);
             try
             {
                 while (await records.ResponseStream.MoveNext())
                 {
                     var current = records.ResponseStream.Current;
-                    Console.Write("Record received.");
-                    System.Diagnostics.Debugger.Break();
+                    Console.Write(current.ToString());
                 }
             }
             catch(Exception e)
@@ -50,6 +48,7 @@ namespace GrpcCiscoDNA
             {
                 Console.WriteLine("Shutting down channel.");
                 channel.ShutdownAsync().Wait();
+                Console.ReadLine();
             }
         }
     }
