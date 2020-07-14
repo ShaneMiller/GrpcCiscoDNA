@@ -1,0 +1,902 @@
+﻿syntax = "proto3";
+
+package firehose_api_v1;
+
+
+import "google/protobuf/empty.proto";
+
+/**
+ * Represents EventType values
+*/
+enum EventType {
+    DEVICE_ENTRY = 0;//Denotes Device Entry event, Can expect this event when a new device enters the location
+    DEVICE_EXIT = 1;//Denotes Device Exit event, Can expect this event when there is no activity seen from the device for an industry specific time(typically 3 hours)
+    PROFILE_UPDATE = 3;//Denotes Device Profile Update event, Can expect this event when there is a change in any of the device profile
+    LOCATION_CHANGE = 4;//Denotes Location Change event, Can expect this event when there is a change location hierarchy in DNASpaces
+    KEEP_ALIVE = 5;//Denotes Keep Alive event, Can expect this event for every 15 seconds when there is no other events are sent
+    APP_ACTIVATION = 6;//Denotes App Activation event, Can expect this event when there is a new activation for an app
+    ACCOUNT_ADMIN_ACTIVATION = 7;//Denotes Account Admin event, Can expect this when a new account admin gets added
+    DEVICE_LOCATION_UPDATE = 8;//Denotes Device Location Update event, Can expect this when there is a ping from Device
+    TP_PEOPLE_COUNT_UPDATE = 9;//Denotes TelePresence People Count Update event, Can expect this when there is a people count update from TelePresence device
+    APP_DE_ACTIVATION = 10;//Denotes App Deactivation event, Can expect this event when there is a deactivation for an app
+    DEVICE_PRESENCE = 15;//Denotes Device Presence event, Can expect this event during a lifecycle of a device at a location. Lifecycle events are entry, in-active(no activity for 10 minutes), active(activity after being in-active), exit(no activity for industry specific idle time, typically 3 hours)
+    USER_PRESENCE = 16;//Denotes User Presence event, Can expect this event during a lifecycle of an user at a location. User gets identified based on information available via authentications used across devices, If same auth identity gets used in multiple devices then all gets grouped as single User.Lifecycle events are entry, in-active(no activity for 10 minutes), active(activity after being in-active), exit(no activity for industry specific idle time, typically 3 hours)
+    BLE_UPDATE = 17;//Denotes Beacon Update event, Can expect this even when there is a Telemetry update from Bluetooth devices
+    IOT_TELEMETRY = 18;
+    IOT_USER_ACTION = 19;
+    DEVICE_COUNT = 20;
+}
+
+/**
+ * Represents event record
+*/
+message EventRecord {
+    string record_uid = 1;//Unique ID for an event, can be used for de-duplicate the events
+    int64 record_timestamp = 2;//Epoch timestamp for an event
+    string spaces_tenant_id = 3;//ID of a tenant in DNASpaces
+    string spaces_tenant_name = 4;//Name of a tenant in DNASpaces
+    string partner_tenant_id = 5;//ID of a tenant in Partner
+    EventType event_type = 6;//Event type for an event
+
+    oneof event {
+        DeviceEntry device_entry = 7;//Device Entry data in an event
+        DeviceExit device_exit = 8;//Device Exit data in an event
+        Device device_profile_update = 10;//Device Profile data in an event
+        LocationChange location_hierarchy_change = 11;//Location Change data in an event
+        DeviceLocation device_location_update = 12;//Device Location data in an event
+        AppActivation app_activation = 13;//App Activation data in an event
+        AccountAdminChange account_admin_change = 14;//Account Admin data in an event
+        TPPeopleCountUpdate tp_people_count_update = 15;//TelePresence People Count Update data in an event
+        DevicePresence device_presence = 20;//Device Presence data in an event
+        UserPresence user_presence = 21;//User Presence data in an event
+        BLEUpdate ble_update = 22;
+        IOTTelemetry iot_telemetry = 23;
+        IOTUserAction iot_user_action = 24;
+        DeviceCounts device_counts = 25;
+    }
+}
+
+/**
+ * Represents BlueTooth Update data
+*/
+message BLEUpdate {
+    string device_id = 1;
+    repeated string groups = 2;
+    string device_mac_address = 3;
+    DevicePosition detected_position = 4;
+    DevicePosition placed_position = 5;
+    DeviceInfo device_info = 6;
+    Location location = 7;
+    Telemetry telemetry = 8;
+    iBeacon i_beacon = 9;
+    Eddystone eddy_stone = 10;
+    Battery battery = 11;
+    UserTrigger trigger = 12;
+
+    //restricted access / TBD
+    int32 pdu_header_received = 13;
+    bytes pdu_payload_received = 14;
+
+    message DevicePosition{
+        string map_id = 1;
+        float x_pos = 2;
+        float y_pos = 3;
+        double confidence_factor = 4;
+        double latitude = 5;
+        double longitude = 6;
+    }
+
+    message DeviceInfo{
+        string raw_device_id = 1;
+        string device_name = 2;
+        string firmware_version = 3;
+        int32 transmission_power = 4;
+        int64 last_retrieved = 15;
+    }
+    /**
+    * Represents Telemetry data
+    */
+    message Telemetry {
+        Temperature temperature = 1;
+        Accelerometer accelerometer = 3;
+        Illuminance illuminance = 4;
+        int64 device_rtc_time = 5;
+        double humidity_percentage = 6;
+    }
+
+    message iBeacon {
+        string beacon_mac_address = 1;
+        string uuid = 2;
+        int32 major = 3;
+        int32 minor = 4;
+        int32 advertized_tx_power = 5;
+    }
+
+
+    message Eddystone {
+        string beacon_mac_address = 1;
+        oneof frame {
+            string uid = 2;
+            string namespace = 3;
+            string url = 4;
+        }
+    }
+
+    message Temperature {
+        double temperature_in_celsius = 1;
+        double raw_temperature = 2;
+    }
+
+    message UserTrigger {
+        TriggerType type = 1;
+        string trigger_id = 2;
+        int32 trigger_timestamp = 3;
+        int32 trigger_duration = 4;
+        int32 trigger_count = 5;
+        string reason_code = 6;
+
+        enum TriggerType {
+            UNKNOWN = 0;
+            BUTTON = 1;
+            FINGERPRINT_SENSOR = 2;
+        }
+    }
+
+    message Illuminance {
+        double value = 1;
+        IlluminanceUnit unit = 2;
+
+        enum IlluminanceUnit {
+            PERCENTAGE = 0;
+            LUX = 1;
+        }
+    }
+
+    message Battery {
+        float value = 1;
+        BatteryUnit unit = 2;
+        int64 last_retrieved = 15;
+
+        enum BatteryUnit {
+            PERCENTAGE = 0;
+            MILLI_VOLTS = 1;
+        }
+    }
+    /**
+    * Represents Accelerometer Data
+    */
+    message Accelerometer {
+        double x = 1;
+        double y = 2;
+        double z = 3;
+        int64 last_movement_timestamp = 4;
+    }
+}
+
+
+message DeviceInfo {
+    IOTDeviceType device_type = 1;
+    string device_id = 2;
+    string device_mac_address = 3;
+    repeated string group = 4;
+    string device_name = 5;
+    string firmware_version = 6;
+    string raw_device_id = 7;
+    string manufacturer = 8;
+}
+
+message DevicePosition {
+    float x_pos = 1;
+    float y_pos = 2;
+    double latitude = 3;
+    double longitude = 4;
+    double confidence_factor = 5;
+    string map_id = 6;
+    string location_id = 7;
+}
+
+enum IOTDeviceType {
+    IOT_DEVICE_UNKNOWN = 0;
+    IOT_BLE_DEVICE = 1;
+    IOT_RFID_TAG = 2;
+    IOT_ZIGBEE_DEVICE= 3;
+}
+
+enum IOTActionType {
+    IOT_ACTION_UNKNOWN = 0;
+    IOT_ACTION_DOUBLE_TAP = 1;
+    IOT_ACTION_BUTTON_CLICK = 2;
+}
+
+message IOTUserAction {
+    DeviceInfo device_info = 1;
+    DevicePosition detected_position = 2;
+    DevicePosition placed_position = 3;
+    Location location = 4;
+    IOTActionType action_type = 5;
+    int32 action_count = 6;
+    int64 action_timestamp = 7;
+}
+
+
+message IOTTelemetry {
+    DeviceInfo device_info = 1;
+    DevicePosition detected_position = 2;
+    DevicePosition placed_position = 3;
+    Location location = 4;
+    Temperature temperature = 5;
+    Accelerometer accelerometer = 6;
+    Illuminance illuminance = 7;
+    int64 device_rtc_time = 8;
+    double humidity_percentage = 9;
+    Battery battery = 10;
+    LastUserAction last_user_action = 11;
+    iBeacon i_beacon = 12;
+    Eddystone eddy_stone = 13;
+
+    int32 raw_header = 14;
+    bytes raw_payload = 15;
+    int32 sequence_num = 16;
+
+
+    message iBeacon {
+        string beacon_mac_address = 1;
+        string uuid = 2;
+        int32 major = 3;
+        int32 minor = 4;
+        int32 advertized_tx_power = 5;
+    }
+
+
+    message Eddystone {
+        string beacon_mac_address = 1;
+        oneof frame {
+            string uid = 2;
+            string namespace = 3;
+            string url = 4;
+        }
+    }
+
+
+    message Temperature {
+        double temperature_in_celsius = 1;
+        double raw_temperature = 2;
+    }
+
+    message Accelerometer {
+        double x = 1;
+        double y = 2;
+        double z = 3;
+        int64 last_movement_timestamp = 4;
+    }
+
+    message Illuminance {
+        double value = 1;
+        IlluminanceUnit unit = 2;
+
+        enum IlluminanceUnit {
+            PERCENTAGE = 0;
+            LUX = 1;
+        }
+    }
+
+    message Battery {
+        float value = 1;
+        BatteryUnit unit = 2;
+        int64 last_retrieved = 15;
+
+        enum BatteryUnit {
+            PERCENTAGE = 0;
+            MILLI_VOLTS = 1;
+        }
+    }
+
+    message LastUserAction {
+        IOTActionType type = 1;
+        int64 timestamp = 2;
+    }
+}
+
+
+message DeviceCounts {
+    Location location = 1;
+    int64 associated_count = 2;
+    int64 estimated_probing_count = 3;
+    double probing_randomized_percentage = 4;
+    int32 associated_delta = 5;
+    int32 probing_delta = 6;
+    double estimated_density = 7;
+}
+
+/**
+* Represents DevicePresenceEventType
+*/
+enum DevicePresenceEventType {
+    DEVICE_ENTRY_EVENT = 0;//Defines Device Entry Event
+    DEVICE_IN_ACTIVE_EVENT = 1;//Defines Device InActive Event
+    DEVICE_ACTIVE_EVENT = 2;//Defines Device Active Event
+    DEVICE_EXIT_EVENT = 3;//Defines Device Exit Event
+    DEVICE_SSID_CHANGE_EVENT = 4;//Defines Device SSID Change Event
+    DEVICE_RAW_USER_ID_CHANGE_EVENT = 5;//Defines Device RAW User ID Change Event
+}
+
+/**
+* Represents UserPresenceEventType
+*/
+enum UserPresenceEventType {
+    USER_ENTRY_EVENT = 0;//Defines User Entry Event
+    USER_IN_ACTIVE_EVENT = 1;//Defines User InActive Event
+    USER_ACTIVE_EVENT = 2;//Defines User Active Event
+    USER_EXIT_EVENT = 3;//Defines User Exit Event
+}
+
+/**
+* Represents DevicePresence
+*/
+message DevicePresence {
+     DevicePresenceEventType presence_event_type = 1;//Defines the event type in Device Presence lifecycle
+     bool was_in_active = 2;//Defines whether the device was in-active before, This gets significance in exit to know if device has exited from in-active or entry
+     Device device = 3;//Defines Profile data  of the device
+     Location location = 4;//Defines Location Data of the device
+     string ssid = 5;//Defines SSID of the device connected to
+     string raw_user_id = 6;//Defines user id used for Wi-Fi authentication
+     string visit_id = 7;//Defines Unique ID for a visit starting from entry to exit, Its same across all levels during the visit
+     int32 days_since_last_visit = 8;//Defines Number of days since the last visit of a device at the location
+     int64 entry_timestamp = 9;//Defines Entry timestamp in epoch millisecond
+     string entry_date_time = 10;//Defines Entry time in string format after converting to local timezone
+     int64 exit_timestamp = 11;//Defines Exit timestamp in epoch millisecond
+     string exit_date_time = 12;//Defines Exit time in string format after converting to local timezone
+     int32 visit_duration_minutes = 13;//Defines Visit duration in minutes[ by doing (exit_timestamp - entry_timestamp) / 60 * 1000 ], applicable only for exit otherwise its 0
+     string time_zone = 14;//Defines TimeZone of a location
+     string device_classification = 15;//Defines Device Classification
+     string visit_classification = 16;//Defines Visit Classification
+     int32 active_devices_count = 17;//Current Active devices count at the location, It's count after the current device presence event
+     int32 in_active_devices_count = 18;//Current InActive devices count at the location, It's count after the current device presence event
+}
+
+/**
+* Represents UserPresence
+*/
+message UserPresence {
+
+    UserPresenceEventType presence_event_type = 1;//Defines the event type in User Presence lifecycle
+    bool was_in_active = 2;  //Defines whether the user was in-active before, This gets significance in exit to know if user has exited from in-active or entry
+    User user = 3;//Defines Profile data  of the user
+    Location location = 4;//Defines Location Data of the device
+    string raw_user_id = 5;  //Defines user id used for Wi-Fi authentication
+    string visit_id = 6;//Defines Unique ID for a visit starting from entry to exit, Its same across all levels during the visit
+    int64 entry_timestamp = 7;//Defines Entry timestamp in epoch millisecond
+    string entry_date_time = 8;//Defines Entry time in string format after converting to local timezone
+    int64 exit_timestamp = 9;//Defines Exit timestamp in epoch millisecond
+    string exit_date_time = 10;//Defines Exit time in string format after converting to local timezone
+    int32 visit_duration_minutes = 11;//Defines Visit duration in minutes[ by doing (exit_timestamp - entry_timestamp) / 60 * 1000 ], applicable only for exit otherwise its 0
+    string time_zone = 12;//Defines TimeZone of a location
+    UserCount active_users_count = 13;//Current Active user counts at the location, It's count after the current user presence event
+    UserCount in_active_users_count = 14;//Current InActive user counts at the location, It's count after the current user presence event
+
+    /**
+    * Represents UserCount
+    */
+    message UserCount {
+        int32 users_with_user_id = 1;//Counts of users with user ids
+        int32 users_without_user_id = 2;//Counts of users without user ids
+        int32 total_users = 3;//Counts of total users [ by doing (users_with_user_id + users_without_user_id) ]
+    }
+}
+
+
+
+/**
+* Represents User Profile Information
+* These fields are sent only based on the availability of the information through various authentication methods
+*/
+message User {
+    string user_id = 1; //Defines User ID of the user in DNASpaces, applicable for only users with valid user ids
+    repeated string device_ids = 2; //Defines list of Device ID grouped for the user
+    repeated string tags = 3; //Defines list of Tag/Persona associated with the user
+    string mobile = 4; //Defines mobile number of the user
+    string email = 5; //Defines email number of the user
+    Gender gender = 6; //Defines mobile number of the user
+    string first_name = 7; //Defines first name of the user
+    string last_name = 8; //Defines last name of the user
+    string postal_code = 9; //Defines postal code of the user
+    repeated Attribute attributes = 10; //Defines non-standard fields, These are used only in an on-demand basis for the fields which are not captured by default
+    repeated SocialNetworkInfo social_network_info = 11; //Defines list of social information of the user, It will be available only if you have enabled this in App Settings
+}
+
+/**
+* Represents Location
+*/
+message Location {
+    string location_id = 1;//Defines Location ID of the location in DNASpaces
+    string name = 2;//Defines Name of the location in DNASpaces
+    repeated string inferred_location_types = 3;//Defines Types of the location inferred by DNASpaces
+    Location parent = 4;//Defines Parent of the location in DNASpaces Location Hierarchy
+}
+
+/**
+* Represents Gender
+*/
+enum Gender {
+    GENDER_NOT_AVAILABLE = 0;//Default value
+    MALE = 1;//Defines Male
+    FEMALE = 2;//Defines Female
+    OTHER = 3;//
+}
+
+/**
+* Represents OtherField
+*/
+message Attribute {
+    string name = 1;//Defines Name of the field
+    repeated string values = 2;//Defines Values associated with the field
+}
+
+/**
+* Represents SocialNetworkInfo
+*/
+message SocialNetworkInfo {
+    SocialNetwork social_network = 1;//Defines Social network type
+    string social_handle = 2;//Defines Handle/ID of the Social network
+    oneof social_info {
+        Facebook facebook = 3;//Defines Facebook info
+        Twitter twitter = 4;//Defines Twitter info
+        LinkedIn linked_in = 5;//Defines LinkedIn info
+    }
+}
+
+/**
+* Represents SocialNetwork
+*/
+enum SocialNetwork {
+    FACEBOOK = 0;//Default Facebook Social Network
+    TWITTER = 1;//Default Twitter Social Network
+    LINKEDIN = 2;//Default LinkedIn Social Network
+}
+
+/**
+* Represents Facebook
+*/
+message Facebook {
+    string id = 1; //Defines ID of the user in Facebook
+    string first_name = 2; //Defines First name of the user in Facebook
+    string last_name = 3; //Defines Last name of the user in Facebook
+    string middle_name = 4; //Defines Middle name of the user in Facebook
+    string name = 5; //Defines Name of the user in Facebook
+    string short_name = 6; //Defines Short name of the user in Facebook
+    string name_format = 7; //Defines Name format used in Facebook
+    string picture = 8; //Defines picture image url in Facebook
+    string email = 9; //Defines email of the user in Facebook
+    repeated Attribute attributes = 101; //Defines Other non-standard fields of the user available in Facebook
+}
+
+/**
+* Represents Twitter
+*/
+message Twitter {
+    string id = 1; //Defines ID of the user in Twitter
+    string name = 2; //Defines Name of the user in Twitter
+    string screen_name = 3; //Defines Screen name of the user in Twitter
+    int32 friends_count = 4; //Defines Friends count of the user in Twitter
+    int32 followers_count = 5; //Defines Followers count of the user in Twitter
+    string profile_image_url = 6; //Defines Profile image url in Twitter
+    string profile_banner_url = 7; //Defines Profile banner url in Twitter
+    string location = 8; //Defines Location info in Twitter
+    int32 statuses_count = 9; //Defines Location info in Twitter
+    string email = 10; //Defines email of the user in Facebook
+    bool profile_verified = 11; //Defines Verified status of the user profile in Twitter
+    string utc_offset = 12; //Defines Timezone UTC offset of the user in Twitter
+    string time_zone = 13; //Defines Timezone of the user in Twitter
+    bool geo_enabled = 14; //Defines Geo Enabled status of the user in Twitter
+    string lang = 15; //Defines Language of the user in Twitter
+    repeated Attribute attributes = 101; //Defines Other non-standard fields of the user available in Twitter
+}
+
+/**
+* Represents LinkedIn
+*/
+message LinkedIn {
+    string id = 1; //Defines ID of the user in LinkedIn
+    string first_name = 2; //Defines First name of the user in LinkedIn
+    string last_name = 3; //Defines Last name of the user in LinkedIn
+    string profile_picture = 4; //Defines Profile Picture image url in LinkedIn
+    string email = 5; //Defines email of the user in LinkedIn
+    repeated Attribute attributes = 101; //Defines Other non-standard fields of the user available in LinkedIn
+}
+
+message MobileInfo {
+    string number = 1;
+    bool verified = 2;
+    bool opted_in = 3;
+}
+
+message EmailInfo {
+    string address = 1;
+    bool verified = 2;
+    bool opted_in = 3;
+}
+
+
+/**
+    * Represents DeviceType
+    */
+enum DeviceType {
+    NOT_AVAILABLE = 0;//Default Value
+    MOBILE = 1;//Defines Mobile Device Type
+    TABLET = 2;//Defines Tablet Device Type
+    LAPTOP = 3;//Defines Laptop Device Type
+    OTHER_DEVICE = 4;//Defines Other Device Type, eg: Wearables
+}
+
+/**
+* Represents Device Profile Information
+* These fields are sent only based on the availability of the information through various authentication methods
+*/
+message Device {
+    string device_id = 1; //Defines User ID of the user in DNASpaces, applicable for only users with valid user ids
+    string user_id = 2; //Defines Device ID of the device in DNASpaces
+    repeated string tags = 3; //Defines list of Tag/Persona associated with the device
+    string mobile = 4; //Defines mobile number of the device
+    string email = 5; //Defines email number of the device
+    Gender gender = 6; //Defines mobile number of the device
+    string first_name = 7; //Defines first name of the device
+    string last_name = 8; //Defines last name of the device
+    string postal_code = 9; //Defines postal code of the device
+    repeated OptIn opt_ins = 10; //Defines list of OptIn of the device
+    repeated Attribute attributes = 11; //Defines Other non-standard fields of the device, These are used only in an on-demand basis for the fields which are not captured by default
+    string mac_address = 12; //Defines mac address of the device, It will be available only if you have enabled this in App Settings
+    string manufacturer = 13; //Defines manufacturer of the device
+    string os = 14; //Defines OS of the device
+    string os_version = 15; //Defines OS Version of the device
+    DeviceType type = 16; //Defines Type of the device
+    repeated SocialNetworkInfo social_network_info = 17; //Defines list of social information of the device, It will be available only if you have enabled this in App Settings
+
+    /**
+    * Represents OptIn
+    */
+    enum OptIn {
+        MOBILE_NUMBER = 0;//Defines Mobile Number Opt-In
+        EMAIL = 1;//Defines Email Opt-In
+        TERMS_AND_CONDITIONS = 2;//Defines T&C Opt-In
+    }
+
+
+}
+
+
+/**
+* Represents DeviceEntry
+*/
+message DeviceEntry {
+    Device device = 1;//Defines Profile data  of the device
+    Location location = 2;//Defines Location Data of the device
+    string visit_id = 3;//Defines Unique ID for a visit starting from entry to exit, Its same across all levels during the visit
+    int64 entry_timestamp = 4;//Defines Entry timestamp in epoch millisecond
+    string entry_date_time = 5;//Defines Entry time in string format after converting to local timezone
+    string time_zone = 6;//Defines TimeZone of a location
+    string device_classification = 7;//Defines Device Classification
+    int32 days_since_last_visit = 8;//Defines Number of days since the last visit of a device at the location
+}
+
+/**
+* Represents DeviceExit
+*/
+message DeviceExit {
+    Device device = 1;//Defines Profile data  of the device
+    Location location = 2;//Defines Location Data of the device
+    string visit_id = 3;//Defines Unique ID for a visit starting from entry to exit, Its same across all levels during the visit
+    int32 visit_duration_minutes = 4;//Defines Visit duration in minutes[ by doing (exit_timestamp - entry_timestamp) / 60 * 1000 ]
+    int64 entry_timestamp = 5;//Defines Entry timestamp in epoch millisecond
+    string entry_date_time = 6;//Defines Entry time in string format after converting to local timezone
+    int64 exit_timestamp = 7;//Defines Exit timestamp in epoch millisecond
+    string exit_date_time = 8;//Defines Exit time in string format after converting to local timezone
+    string time_zone = 9;//Defines TimeZone of a location
+    string device_classification = 10;//Defines Device Classification
+    string visit_classification = 11;//Defines Visit Classification
+}
+
+
+/**
+* Represents DeviceExit
+*/
+message DeviceLocation {
+    Device device = 1;//Defines Profile data  of the device
+    Location location = 2;//Defines Location Data of the device
+    string ssid = 3;//Defines SSID of the device connected to
+    string raw_user_id = 4;//Defines user id used for Wi-Fi authentication
+    string visit_id = 5;//Defines Unique ID for a visit starting from entry to exit, Its same across all levels during the visit
+    int64 last_seen = 6;//Defines Last Seen timestamp in epoch millisecond
+    string device_classification = 7;//Defines Device Classification
+    string map_id = 8;//Defines Map ID of a location
+    float x_pos = 9;//Defines X Position of the device
+    float y_pos = 10;  //Defines Y Position of the device
+    double confidence_factor = 11;  //Defines Confidence factor value provided by network infra
+    double latitude = 12;//Defines Latitude value of a location
+    double longitude = 13;//Defines Longitude value of a location
+    float unc = 14;//Defines uncertainty value provided by network infra
+    int32 max_detected_rssi = 15;//Defines max rssi value from the observation
+}
+
+
+/**
+* Represents ChangeType
+*/
+enum ChangeType {
+    ADD = 0;//Defines Add is the Change
+    REMOVE = 1;//Defines Remove is the Change
+    MOVE = 2;//Defines Move is the Change
+    UPDATE = 3;//Defines Update is the Change
+}
+
+
+/**
+* Represents Dimension
+*/
+message Dimension {
+    float length = 1;//Defines Length of an entity
+    float width = 2;//Defines Width of an entity
+    float height = 3;//Defines Height of an entity
+    float offset_x = 4;//Defines Offset X of an entity
+    float offset_y = 5;//Defines Offset Y of an entity
+}
+
+
+/**
+* Represents MapDetails
+*/
+message MapDetails {
+    string map_id = 1;//Defines ID of a map
+    int32 image_width = 2;//Defines Width of a map image
+    int32 image_height = 3;//Defines Height of a map image
+    string mime_type = 4;//Defines Mime type of a map image
+    Dimension dimension = 5;//Defines Dimension of a map location
+}
+
+
+/**
+* Represents LocationDetails
+* These fields are sent only based on the availability of the information through network infra and DNASpaces Location Hierarchy
+*/
+message LocationDetails {
+    string time_zone = 3;//Defines TimeZone of a location
+    string city = 4;//Defines City of a location
+    string state = 5;//Defines State of a location
+    string country = 6;//Defines Country of a location
+    string category = 7;//Defines Category of a location
+    repeated Metadata metadata = 8;//Defines Meta Data of a location
+    double latitude = 9;//Defines Latitude of a location
+    double longitude = 10;//Defines Longitude of a location
+    MapDetails map_details = 11;//Defines Map Details of a location
+
+
+    /**
+    * Represents Metadata
+    */
+    message Metadata {
+        string key = 1;//Defines Name of the Meta Data key
+        repeated string values = 2;//Defines Values of the Meta Data
+    }
+}
+
+
+/**
+* Represents LocationChange
+*/
+message LocationChange {
+    ChangeType change_type = 1;//Defines Type of the Location Change
+    Location location = 2;//Defines Location of the Change
+    LocationDetails location_details = 3;//Defines Location Details of the Change, not applicable if ChangeType = REMOVE
+}
+
+
+/**
+* Represents AppActivation
+*/
+message AppActivation {
+    string spaces_tenant_name = 1;//Name of a tenant in DNASpaces
+    string spaces_tenant_id = 2;//ID of a tenant in DNASpaces
+    string partner_tenant_id = 3;//ID of a tenant in Partner
+    string name = 4;//Display Name of an activation
+    string reference_id = 5;//Reference ID of an activation
+    string instance_name = 6;//Instance Name of an activation
+    repeated string mac_filters = 7;
+}
+
+
+/**
+* Represents AccountAdminChange
+*/
+message AccountAdminChange {
+    ChangeType change_type = 1;//Defines Type of the Account Admin Change
+    string login_email = 2;  //Login Email of the Account Admin
+}
+
+
+/**
+* Represents TPPeopleCountUpdate
+*/
+message TPPeopleCountUpdate {
+    string tp_device_id = 1;//ID of TelePresence device
+    Location location = 2;//Defines Location Data of TelePresence device
+    bool presence = 3;//Defines presence status from TelePresence device
+    int64 people_count = 4;//Defines People count from TelePresence device
+    int32 standby_state = 6;//Defines Stand by State value from TelePresence device
+    int32 ambient_noise = 7;//Defines People count from TelePresence device
+    int32 dryness_score = 8;//Defines People count from TelePresence device
+    int32 active_calls = 9;//Defines People count from TelePresence device
+    int32 presentation_state = 10;//Defines People count from of TelePresence device
+    int64 time_stamp = 11;//Defines Timestamp in epoch milliseconds of TelePresence device during this update
+}
+
+
+/**
+* Represents EventsStreamRequest
+*/
+message EventsStreamRequest {
+    int32 min_partition = 1;//Min Partition value to be used for EventsStreamRequest
+    int32 max_partition = 2;//Max Partition value to be used for EventsStreamRequest
+    int64 from_timestamp = 3;//From Timestamp value to be used for EventsStreamRequest
+    int32 replica_id = 4;//Replica Id value to be used for EventsStreamRequest, applicable only for on-premise apps
+}
+
+
+/**
+* Represents LocationInfoRequest
+*/
+message LocationInfoRequest {
+    string location_id = 1;//ID of the location
+    string partner_tenant_id = 2;//ID of a tenant in Partner
+}
+
+
+/**
+* Represents LocationInfo
+*/
+message LocationInfo {
+    Location location = 2;//Location data for the requested location ID
+    LocationDetails location_details = 3;//Details for the requested location ID
+}
+
+
+/**
+* Represents FloorMapRequest
+*/
+message FloorMapRequest {
+    string map_id = 1;//ID of the map
+    string partner_tenant_id = 2;//ID of a tenant in Partner
+}
+
+
+/**
+* Represents FloorMap
+*/
+message FloorMap {
+    MapDetails map_details = 1;//Map Details for the requested map ID
+    bytes image_data = 2;//RAW Image Data for the requested map ID
+}
+
+
+/**
+* Represents EventFiltersRequest
+*/
+message EventFiltersRequest {
+    string partner_tenant_id = 1;//ID of a tenant in Partner
+    repeated string mac_filters = 2;//List of MAC Address to be used for filtering the events
+}
+
+
+
+/**
+* Represents DisableFiltersRequest
+*/
+message DisableFiltersRequest {
+    string partner_tenant_id = 1;//ID of a tenant in Partner
+}
+
+
+/**
+* Represents Health
+*/
+message Health {
+
+    int64 timestamp = 1;//Timestamp in milliseconds when a health check ran
+    repeated ActiveConnection active_connections = 2;//List of Firehose Pull Connections currently active
+    string protocol_version = 3;//Latest protocol version
+    repeated AppActivation app_activations = 4;//List of App Activations associated with the request
+
+
+    /**
+    * Represents ActiveConnection
+    */
+    message ActiveConnection {
+        ConnectionType connection_type = 1;//Type of the Firehose Pull Connection
+        int32 min_partition = 2;//Min Partition value used in EventsStreamRequest
+        int32 max_partition = 3;//MAX Partition value used in EventsStreamRequest
+        int64 from_timestamp = 4;//From Timestamp value used in EventsStreamRequest
+        int32 replica_id = 5;//Replica ID value used in EventsStreamRequest
+        int64 connected_timestamp = 6;//Timestamp in milliseconds when a connection got established
+        int32 one_minute_rate = 7;//Number of events sent per minute
+    }
+
+
+    /**
+    * Represents ConnectionType
+    */
+    enum ConnectionType {
+        HTTP = 0;//HTTP Pull Connection
+        G_RPC = 1;//gRPC Pull Connection
+    }
+
+}
+
+message GetDeviceRequest {
+    string partner_tenant_id = 1;
+
+    oneof id {
+        string mac_address = 2;
+        string device_id = 3;
+    }
+}
+
+message SaveDeviceRequest {
+    string partner_tenant_id = 1;
+
+    oneof id {
+        string mac_address = 2;
+        string device_id = 3;
+    }
+
+    DeviceProfileData device_profile_data = 4;
+
+}
+
+message DeviceProfileData {
+    string first_name = 1;
+    string last_name = 2;
+    Gender gender = 3;
+    MobileInfo mobile = 4;
+    EmailInfo email = 5;
+    repeated SocialNetworkInfo social_network_info = 6;
+    DeviceType type = 7;
+    repeated string add_tags = 8;
+    repeated string remove_tags = 9;
+    repeated Attribute attributes = 10;
+}
+
+
+
+service Firehose {
+
+    rpc GetEvents (EventsStreamRequest) returns (stream EventRecord) {
+
+    }
+
+    rpc EnableFilters (EventFiltersRequest) returns (google.protobuf.Empty) {
+
+    }
+
+    rpc DisableFilters (DisableFiltersRequest) returns (google.protobuf.Empty) {
+
+    }
+
+    rpc GetLocationInfo(LocationInfoRequest)  returns (LocationInfo) {
+
+    }
+
+    rpc GetFloorMap(FloorMapRequest)  returns (FloorMap) {
+
+    }
+
+    rpc GetHealth(google.protobuf.Empty) returns (Health) {
+
+    }
+
+    rpc SaveDevice(SaveDeviceRequest) returns (Device) {
+
+    }
+
+    rpc GetDevice(GetDeviceRequest) returns (Device) {
+
+    }
+
+}
